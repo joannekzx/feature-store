@@ -126,8 +126,4 @@ credentials via your environment.
 - Handle schema evolution for both the event and feature records.
 - Swap the processing-time windows for event-time + watermarks.
 
----
 
-For the full teaching walkthrough — every component explained from scratch, every bug hit
-and how it was fixed, and the complete run guide — see
-[`PROJECT_WALKTHROUGH.md`](PROJECT_WALKTHROUGH.md).
