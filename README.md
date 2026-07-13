@@ -9,10 +9,6 @@ latest feature per entity is served from **Redis** behind a **gRPC** API; the fu
 lands in **S3 as Parquet** for training. As-of joins eliminate data leakage, and batching
 online lookups cut serving **p99 latency ~9×** (p50 ~20×).
 
-> **The pivot story:** I came from analytics/warehouse work and built the bridge into
-> systems infrastructure. The throughline is *data integrity under real-time constraints* —
-> point-in-time correctness is the same discipline that prevents look-ahead bias in
-> financial backtesting.
 
 **Stack:** Java · Kafka · Flink · Redis · S3/Parquet · gRPC/protobuf · Docker · AWS
 
@@ -104,8 +100,7 @@ cd pit-join && python pit_join.py --demo     # PIT proof only, no AWS
 ```
 
 Config you'll set: the S3 bucket name (in `pit_join.py` / the Flink S3 sink) and AWS
-credentials via your environment. Full step-by-step with expected output is in
-[`PROJECT_WALKTHROUGH.md`](PROJECT_WALKTHROUGH.md).
+credentials via your environment. 
 
 ---
 
