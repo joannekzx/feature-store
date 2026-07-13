@@ -1,0 +1,42 @@
+// protobuff definition
+syntax = "proto3";
+
+option java_package = "com.featurestore.grpc";
+option java_outer_classname = "FeatureStoreProto";
+
+// defines the gRPC service
+//   GetFeatures      -- fetch one entity's features
+//   GetFeaturesBatch -- fetch many entities at once; used for the Step 8
+//                       N+1-lookups benchmark (naive vs pipelined Redis access)
+service FeatureStore {
+  rpc GetFeatures (GetFeaturesRequest) returns (GetFeaturesResponse);
+  rpc GetFeaturesBatch (GetFeaturesBatchRequest) returns (GetFeaturesBatchResponse);
+}
+
+// what the client sends (entity_id)
+message GetFeaturesRequest {
+  string entity_id = 1;
+}
+
+// what the server returns, the feature values for that entity
+message GetFeaturesResponse {
+  string entity_id = 1;
+  double total_amount = 2;
+  int32 event_type = 3;
+  int64 timestamp = 4;
+}
+
+// batch request: a list of entity ids plus a switch that selects the Redis
+// access strategy, so the SAME client can measure both sides of the bottleneck.
+//   pipelined = false -> naive: one Redis round-trip per entity (the "N+1" problem)
+//   pipelined = true  -> fixed: all lookups sent in a single pipelined batch
+message GetFeaturesBatchRequest {
+  repeated string entity_ids = 1;
+  bool pipelined = 2;
+}
+
+// batch response: one feature record per requested entity, in request order
+message GetFeaturesBatchResponse {
+  repeated GetFeaturesResponse features = 1;
+}
+

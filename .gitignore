@@ -1,0 +1,30 @@
+# Build output
+target/
+*.class
+dependency-reduced-pom.xml
+
+# Python / pit-join
+.venv/
+__pycache__/
+*.pyc
+training.parquet
+
+# Credentials & local config -- NEVER commit these
+.env
+*.pem
+.aws/
+aws-credentials*
+
+# IDE
+.idea/
+*.iml
+.vscode/*
+!.vscode/settings.json
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+PROJECT_WALKTHROUGH.md
