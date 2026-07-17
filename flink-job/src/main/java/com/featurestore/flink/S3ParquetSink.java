@@ -82,6 +82,7 @@ public class S3ParquetSink extends RichSinkFunction<Event> {
         flusher.scheduleWithFixedDelay(this::flushQuietly, 20, 20, TimeUnit.SECONDS);
     }
 
+    // buffer each record, flushing once we've collected a full batch
     @Override
     public void invoke(Event event, Context context) {
         synchronized (this) {
@@ -92,6 +93,7 @@ public class S3ParquetSink extends RichSinkFunction<Event> {
         }
     }
 
+    // timer-driven flush that swallows errors so one bad flush doesn't kill the scheduler
     private void flushQuietly() {
         try {
             synchronized (this) {
@@ -122,6 +124,7 @@ public class S3ParquetSink extends RichSinkFunction<Event> {
         buffer.clear();
     }
 
+    // write one date's rows to a local parquet file, then upload it under date=YYYY-MM-DD/ on S3
     private void writePartition(String date, List<Event> events) throws Exception {
         File tmp = File.createTempFile("features-", ".parquet");
         tmp.delete(); // the Parquet writer needs to create the file itself
@@ -147,6 +150,7 @@ public class S3ParquetSink extends RichSinkFunction<Event> {
         tmp.delete();
     }
 
+    // stop the timer and flush whatever's left so buffered records aren't lost on shutdown
     @Override
     public void close() {
         if (flusher != null) {

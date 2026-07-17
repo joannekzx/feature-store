@@ -9,6 +9,8 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 
+// the streaming pipeline: read events from Kafka, aggregate per user in 30s windows,
+// then fan out to Redis (online serving) and S3 Parquet (offline history)
 public class FeatureJob {
     public static void main(String[] args) throws Exception {
         // Hadoop is on the classpath (for Parquet), which makes Flink's security module try to

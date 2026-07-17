@@ -5,8 +5,10 @@ import com.featurestore.grpc.FeatureStoreProto.GetFeaturesResponse;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
+// tiny cli client -- fetches a few known users from the gRPC server so you can eyeball the served feature values
 public class FeatureClient {
 
+    // walk the known users and print whatever the server hands back
     public static void main(String[] args) throws InterruptedException {
         String host = "127.0.0.1";
         int port = 50051;

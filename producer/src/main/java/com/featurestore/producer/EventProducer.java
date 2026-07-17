@@ -25,13 +25,27 @@ public class EventProducer {
         KafkaProducer<String, String> producer = new KafkaProducer<>(props);
         Random random = new Random();
 
-        System.out.println("Starting producer");
+        // set SCHEMA_BREAK=true to simulate an upstream team renaming `amount` -> `amt` without
+        // telling us. those events should get caught by schema validation, not written through.
+        boolean injectBreak = "true".equalsIgnoreCase(System.getenv("SCHEMA_BREAK"));
+
+        System.out.println("Starting producer" + (injectBreak ? " (injecting schema breaks)" : ""));
 
         for (int i = 0; i < 100; i++) {
             String entityId = "user-" + random.nextInt(10);
             double amount = Math.round(random.nextDouble() * 1000 * 100.0) / 100.0;
             int eventType = random.nextInt(3) + 1;
             long timestamp = System.currentTimeMillis();
+
+            // every 25th event, send a hand-built payload with the renamed field so the break is visible
+            if (injectBreak && i % 25 == 0) {
+                String bad = "{\"schemaVersion\":1,\"entityId\":\"" + entityId + "\",\"amt\":" + amount
+                        + ",\"eventType\":" + eventType + ",\"timestamp\":" + timestamp + "}";
+                producer.send(new ProducerRecord<>(TOPIC, entityId, bad));
+                System.out.println("Sent (intentionally broken): " + bad);
+                Thread.sleep(500);
+                continue;
+            }
 
             Event event = new Event(entityId, amount, eventType, timestamp);
             String json = mapper.writeValueAsString(event);

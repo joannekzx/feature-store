@@ -34,7 +34,7 @@ Two paths come out of Flink and never mix:
 
 ---
 
-## The two hard problems
+## The hard problems
 
 ### 1. Point-in-time correctness (no data leakage)
 
@@ -48,7 +48,7 @@ most recent feature with `feature_timestamp ≤ T`. Proof from
 
 | entity_id | label_ts | as-of value | naive "use latest" | leaked? |
 |-----------|----------|-------------|--------------------|---------|
-| user-1    | 150      | **10.0** ✅ | 99.0               | yes — naive leaks the future |
+| user-1    | 150      | **10.0**  | 99.0               | yes — naive leaks the future |
 | user-1    | 250      | 99.0        | 99.0               | no |
 
 The naive join hands the t=150 label a value that didn't exist until t=200. The as-of join
@@ -71,6 +71,32 @@ Measured with [`LoadTest.java`](grpc-service/src/main/java/com/featurestore/grpc
 **~20× faster at p50, ~9× at p99.** The round-trips were the cost — payload, gRPC framing,
 and parsing are identical between the two modes, so the gap isolates exactly the fix.
 
+### 3. Schema evolution (catching breaking upstream changes)
+
+A feature is only as trustworthy as the events feeding it. If an upstream producer renames or
+retypes a field, the naive JSON path *silently* absorbs it — a renamed `amount` deserializes to
+its default `0.0`, and that zero flows straight into Redis and the Parquet training history. The
+model then trains on quietly corrupted data with nothing in the logs to explain it.
+
+The fix is an explicit, **versioned data contract**
+([`FeatureSchema.java`](flink-job/src/main/java/com/featurestore/flink/FeatureSchema.java)):
+every event carries a `schemaVersion`, and each payload is validated against it *before* it's
+mapped to a feature ([`EventDeserializer.java`](flink-job/src/main/java/com/featurestore/flink/EventDeserializer.java)) —
+field names, types, and version all checked at the write path. Anything that fails is dropped
+and counted, never written through.
+
+**Demonstrating it:** run the producer with `SCHEMA_BREAK=true` and it injects events that rename
+`amount → amt`, simulating an upstream team changing the contract without coordinating. Before
+validation those would have written `amount=0.0` into the store; now the Flink job rejects them
+with a clear log line and they never reach Redis or Parquet:
+
+```
+SCHEMA REJECT v1 (rejected so far: 1): missing/non-numeric amount -> {"schemaVersion":1,"entityId":"user-3","amt":481.20,...}
+```
+
+Scoped deliberately: one feature, one schema version, one caught break — not a general-purpose
+schema registry (that's the managed-service upgrade below).
+
 ---
 
 ## How to run it locally
@@ -83,7 +109,7 @@ Prerequisites: Docker, JDK 17+, Maven, AWS CLI configured (`aws configure`) with
 # 1. infra
 docker compose up -d                 # Kafka + Redis;  redis-cli ping → PONG
 
-# 2. stream events
+# 2. stream events   (add SCHEMA_BREAK=true to demo schema validation rejecting bad payloads)
 cd producer && mvn -q clean package && java -jar target/producer-1.0-SNAPSHOT.jar
 
 # 3. compute features → Redis (online) + S3 (offline)
@@ -100,7 +126,7 @@ cd pit-join && python pit_join.py --demo     # PIT proof only, no AWS
 ```
 
 Config you'll set: the S3 bucket name (in `pit_join.py` / the Flink S3 sink) and AWS
-credentials via your environment. 
+credentials via your environment.
 
 ---
 
@@ -111,7 +137,7 @@ credentials via your environment.
 - **Scope IAM tightly** — the S3 credentials are limited to `GetObject`/`PutObject`/`ListBucket`
   on the one project bucket, not broad admin keys. An S3 lifecycle rule caps demo storage cost.
 - **Pin a tested JDK** rather than run newest-Java against older Hadoop libraries — that
-  mismatch caused most of the build friction (documented in the walkthrough), and a managed
+  mismatch caused most of the build friction, and a managed
   streaming service would remove it entirely.
 - **Add a schema registry** for the event/feature schemas instead of ad-hoc protobuf
   versioning, plus monitoring/alerting on the gRPC service's latency.
@@ -123,7 +149,6 @@ credentials via your environment.
 ## What I'd do with more time
 
 - Shard Redis and add an in-process LRU in front of it for hot entities.
-- Handle schema evolution for both the event and feature records.
+- Extend the versioned schema check (currently one feature, see problem 3) into a shared registry
+  covering both the event and feature records, with compatibility rules across versions.
 - Swap the processing-time windows for event-time + watermarks.
-
-

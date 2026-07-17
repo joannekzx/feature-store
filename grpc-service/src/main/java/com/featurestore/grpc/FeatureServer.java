@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+// the online serving layer -- a gRPC server that reads the latest features out of Redis and serves them to callers
 public class FeatureServer {
     private static final int DEFAULT_PORT = 50051;
     private static final String DEFAULT_REDIS_HOST = "localhost";
@@ -27,11 +28,13 @@ public class FeatureServer {
     private final JedisPool jedisPool;
     private Server server;
 
+    // hold one Redis pool so every request borrows a connection instead of opening its own
     public FeatureServer(int port, String redisHost, int redisPort) {
         this.port = port;
         this.jedisPool = new JedisPool(redisHost, redisPort);
     }
 
+    // stand up the gRPC server and wire in the Redis-backed service
     public void start() throws IOException {
         server = ServerBuilder.forPort(port)
                 .addService(new FeatureStoreImpl(jedisPool))
@@ -40,12 +43,14 @@ public class FeatureServer {
         System.out.println("Server started, listening on " + port);
     }
 
+    // keep the process alive until the server is told to stop
     public void blockUntilShutdown() throws InterruptedException {
         if (server != null) {
             server.awaitTermination();
         }
     }
 
+    // parse the port/redis flags, then start and block
     public static void main(String[] args) throws IOException, InterruptedException {
         int port = DEFAULT_PORT;
         String redisHost = DEFAULT_REDIS_HOST;
@@ -72,6 +77,7 @@ public class FeatureServer {
         server.blockUntilShutdown();
     }
 
+    // the actual RPC handlers, all reading from the shared Redis pool
     static class FeatureStoreImpl extends FeatureStoreGrpc.FeatureStoreImplBase {
 
         private final JedisPool jedisPool;
@@ -80,6 +86,7 @@ public class FeatureServer {
             this.jedisPool = jedisPool;
         }
 
+        // single-entity lookup: one hgetAll for the one key
         @Override
         public void getFeatures(GetFeaturesRequest request, StreamObserver<GetFeaturesResponse> responseObserver) {
             String entityId = request.getEntityId();
@@ -145,10 +152,12 @@ public class FeatureServer {
             }
         }
 
+        // same key convention the Flink RedisSink writes under, so reads line up with writes
         private static String keyFor(String entityId) {
             return "features:" + entityId;
         }
 
+        // turn the raw redis hash into the proto response, defaulting missing fields to 0
         private static GetFeaturesResponse toResponse(String entityId, Map<String, String> fields) {
             return GetFeaturesResponse.newBuilder()
                     .setEntityId(entityId)

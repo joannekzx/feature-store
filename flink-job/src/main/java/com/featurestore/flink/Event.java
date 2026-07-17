@@ -16,6 +16,7 @@ public class Event {
         this.timestamp = timestamp;
     }
 
+    // readable form so print() / the console sink shows something legible
     @Override
     public String toString() {
         return "user=" + entityId + " totalAmount=" + amount + " eventType=" + eventType + " timestamp=" + timestamp;
