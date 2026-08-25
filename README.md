@@ -130,28 +130,3 @@ cd pit-join && python pit_join.py --demo     # PIT proof only, no AWS
 
 Config you'll set: the S3 bucket name (in `pit_join.py` / the Flink S3 sink) and AWS
 credentials via your environment.
-
----
-
-## In production, this would…
-
-- **Use managed Redis (ElastiCache)** instead of self-hosted, for failover and scaling; and
-  **shard** to handle hot keys.
-- **Scope IAM tightly** — the S3 credentials are limited to `GetObject`/`PutObject`/`ListBucket`
-  on the one project bucket, not broad admin keys. An S3 lifecycle rule caps demo storage cost.
-- **Pin a tested JDK** rather than run newest-Java against older Hadoop libraries — that
-  mismatch caused most of the build friction, and a managed
-  streaming service would remove it entirely.
-- **Add a schema registry** for the event/feature schemas instead of ad-hoc protobuf
-  versioning, plus monitoring/alerting on the gRPC service's latency.
-- **Move to event-time windows with watermarks** (this demo uses processing-time for
-  simplicity) so late/out-of-order events land in the correct window.
-
----
-
-## What I'd do with more time
-
-- Shard Redis and add an in-process LRU in front of it for hot entities.
-- Extend the versioned schema check (currently one feature, see problem 3) into a shared registry
-  covering both the event and feature records, with compatibility rules across versions.
-- Swap the processing-time windows for event-time + watermarks.
