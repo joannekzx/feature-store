@@ -68,8 +68,11 @@ Measured with [`LoadTest.java`](grpc-service/src/main/java/com/featurestore/grpc
 | Before (N+1 lookups) | 6.49 ms | 11.42 ms |
 | After (pipelined batch) | 0.32 ms | 1.27 ms |
 
-**~20× faster at p50, ~9× at p99.** The round-trips were the cost — payload, gRPC framing,
-and parsing are identical between the two modes, so the gap isolates exactly the fix.
+**~20× faster at p50, and roughly an order of magnitude at p99.** The round-trips were the cost
+— payload, gRPC framing, and parsing are identical between the two modes, so the gap isolates
+exactly the fix. p50 is stable across runs (~20–22×); p99 is tail-latency and varies with
+GC/scheduling/load, so treat it as an order-of-magnitude win rather than a fixed number. See
+[`benchmarks/`](benchmarks/) for a repeated-trial capture.
 
 ### 3. Schema evolution (catching breaking upstream changes)
 
