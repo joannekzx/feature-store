@@ -88,18 +88,6 @@ mapped to a feature ([`EventDeserializer.java`](flink-job/src/main/java/com/feat
 field names, types, and version all checked at the write path. Anything that fails is dropped
 and counted, never written through.
 
-**Demonstrating it:** run the producer with `SCHEMA_BREAK=true` and it injects events that rename
-`amount → amt`, simulating an upstream team changing the contract without coordinating. Before
-validation those would have written `amount=0.0` into the store; now the Flink job rejects them
-with a clear log line and they never reach Redis or Parquet:
-
-```
-SCHEMA REJECT v1 (rejected so far: 1): missing/non-numeric amount -> {"schemaVersion":1,"entityId":"user-3","amt":481.20,...}
-```
-
-Scoped deliberately: one feature, one schema version, one caught break — not a general-purpose
-schema registry (that's the managed-service upgrade below).
-
 ---
 
 ## How to run it locally
