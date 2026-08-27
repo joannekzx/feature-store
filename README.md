@@ -29,8 +29,8 @@ flowchart LR
 ```
 
 Two paths come out of Flink and never mix:
-- **Online** (Redis → gRPC): *"what is this entity's feature right now?"* — optimized for latency.
-- **Offline** (S3 → as-of join): *"what was it at time T?"* — optimized for correctness.
+- **Online** (Redis → gRPC): *"what is this entity's feature right now?"*
+- **Offline** (S3 → as-of join): *"what was it at time T?"*
 
 ---
 
@@ -39,8 +39,7 @@ Two paths come out of Flink and never mix:
 ### 1. Point-in-time correctness (no data leakage)
 
 When building training data, a label at time **T** must only see feature values that
-existed **at or before T** — never a value computed afterward. Using a later value leaks the
-future; the model looks great offline and fails in production.
+existed **at or before T**. Using a later value leaks the future; the model looks great offline and fails in production.
 
 The fix is an **as-of join** (merge-on-nearest-backward): for each label at T, attach the
 most recent feature with `feature_timestamp ≤ T`. Proof from
@@ -58,7 +57,7 @@ value 10.0 survives only in S3.
 ### 2. Online-serving latency (the N+1 lookup bottleneck)
 
 Serving features for **K** entities the naive way means **K** separate Redis round-trips in
-series — the classic N+1 problem. The fix pipelines all K lookups into a **single** round-trip.
+series. The fix pipelines all K lookups into a **single** round-trip.
 
 Measured with [`LoadTest.java`](grpc-service/src/main/java/com/featurestore/grpc/LoadTest.java)
 — 50 entities/batch, 2,000 iterations per mode, warmed up, timed with `System.nanoTime()`:
